@@ -2,10 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0f766e" />
-  <meta name="description" content="StockLens Operations Intelligence — IMEI tracking, inventory management, warranty/refund audit" />
-  <title>StockLens · Operations Intelligence</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="StockLens Enterprise Operations Intelligence — Handheld barcode/IMEI scanner, inventory management, warranty/refund audit" />
+  <title>StockLens Enterprise · Handheld Operations</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="icons/favicon.png" />
   <link rel="apple-touch-icon" href="icons/icon.png" />
@@ -17,19 +19,23 @@
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
 
-  <!-- Main App Shell (Hidden when not authenticated) -->
+  <!-- Main App Shell -->
   <div class="app-shell" id="appShell">
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark">S</div>
-        <div><strong>StockLens</strong><span>Operations intelligence</span></div>
+        <div>
+          <strong>StockLens</strong>
+          <span class="enterprise-badge">ENTERPRISE EDITION</span>
+        </div>
       </div>
       <nav id="nav" class="nav"></nav>
       <div class="side-note">
         <span class="pulse"></span>
-        <span id="dataState">Local data ready</span>
+        <span id="dataState">Local database ready</span>
       </div>
     </aside>
+
     <main class="main">
       <header class="topbar">
         <button id="menuBtn" class="icon-btn mobile-only" aria-label="Toggle menu">☰</button>
@@ -38,8 +44,14 @@
           <h1 id="pageTitle">Operations overview</h1>
         </div>
         <div class="top-actions">
+          <!-- Quick Camera Trigger (Visible on all screens) -->
+          <button class="camera-top-btn" id="openScannerTop" title="Launch Camera Barcode Scanner">
+            📷 <span class="desktop-text">Scan IMEI</span>
+          </button>
+          
           <button class="ghost-btn" id="importTop">↥ <span data-i18n="import">Import</span></button>
           <button class="primary-btn" id="exportTop">↧ <span data-i18n="export">Export</span></button>
+          
           <div class="select-wrap">
             <select id="langSelect" aria-label="Language">
               <option value="en">English</option>
@@ -48,7 +60,7 @@
             </select>
           </div>
           
-          <!-- User Profile & Session Widget -->
+          <!-- User Profile Widget -->
           <div class="user-menu-wrap" id="userMenuWrap">
             <button class="user-badge-btn" id="userBadgeBtn" aria-label="User menu">
               <div class="user-avatar" id="topAvatar">A</div>
@@ -64,6 +76,7 @@
                 <span id="dropUserEmail">admin@stocklens.internal</span>
               </div>
               <hr />
+              <button class="user-drop-item" id="btnSettingsNav">⚙️ Enterprise Settings</button>
               <button class="user-drop-item" id="btnLockApp">🔒 Lock Terminal</button>
               <button class="user-drop-item" id="btnSwitchAccount">🔄 Switch Account</button>
               <hr />
@@ -72,24 +85,111 @@
           </div>
         </div>
       </header>
+
       <section id="view"></section>
     </main>
+
+    <!-- Ergonomic Android Bottom Navigation Bar -->
+    <nav class="bottom-nav" id="bottomNav">
+      <button class="bnav-btn active" data-view="dashboard">
+        <span class="bnav-icon">⌂</span>
+        <span class="bnav-label">Overview</span>
+      </button>
+      <button class="bnav-btn" data-view="inventory">
+        <span class="bnav-icon">▦</span>
+        <span class="bnav-label">Inventory</span>
+      </button>
+      <button class="bnav-btn scan-action-btn" id="openScannerBottom">
+        <div class="bnav-scan-circle">📷</div>
+        <span class="bnav-label">Scan</span>
+      </button>
+      <button class="bnav-btn" data-view="imei">
+        <span class="bnav-icon">⌕</span>
+        <span class="bnav-label">Audit</span>
+      </button>
+      <button class="bnav-btn" data-view="offers">
+        <span class="bnav-icon">◈</span>
+        <span class="bnav-label">Offers</span>
+      </button>
+    </nav>
   </div>
 
-  <!-- Advanced Login Screen Modal -->
+  <!-- Live Camera Barcode & IMEI Scanner Modal -->
+  <div class="scanner-overlay hidden" id="scannerModal">
+    <div class="scanner-card">
+      <div class="scanner-head">
+        <div class="scanner-title-wrap">
+          <span class="pulse"></span>
+          <div>
+            <h3>Hardware / Camera Scanner</h3>
+            <p>Aim reticle at IMEI barcode, serial number or QR</p>
+          </div>
+        </div>
+        <button class="icon-btn-circle" id="closeScannerBtn" aria-label="Close Scanner">✕</button>
+      </div>
+
+      <div class="scanner-viewfinder-container">
+        <!-- Live Video Element / HTML5-QRCode Reader -->
+        <div id="reader" class="scanner-reader"></div>
+        <div class="viewfinder-reticle">
+          <div class="laser-scanner-line"></div>
+          <div class="reticle-corner reticle-tl"></div>
+          <div class="reticle-corner reticle-tr"></div>
+          <div class="reticle-corner reticle-bl"></div>
+          <div class="reticle-corner reticle-br"></div>
+        </div>
+        <div class="scanner-hint-badge">Scanning 1D/2D Barcodes...</div>
+      </div>
+
+      <div class="scanner-controls">
+        <button class="scanner-ctrl-btn" id="btnToggleTorch">💡 Flashlight</button>
+        <button class="scanner-ctrl-btn" id="btnFlipCamera">🔄 Switch Cam</button>
+        <button class="scanner-ctrl-btn" id="btnBatchMode">📦 Batch: OFF</button>
+      </div>
+
+      <!-- Batch Scanning Status Strip -->
+      <div class="batch-status-bar hidden" id="batchStatusBar">
+        <div class="batch-count-wrap">
+          <span>Batch Units: <strong id="batchCount">0</strong></span>
+          <span class="batch-dup-pill" id="batchDupAlert">0 Duplicates</span>
+        </div>
+        <button class="primary-btn btn-sm" id="btnFinishBatch">View Summary</button>
+      </div>
+
+      <!-- Manual Input Fallback -->
+      <div class="manual-scan-input">
+        <input type="text" id="manualImeiInput" placeholder="Or enter IMEI / Serial manually..." />
+        <button class="primary-btn" id="btnManualSubmit">Lookup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Device Custody Passport / Printable Audit Modal -->
+  <div class="passport-overlay hidden" id="passportModal">
+    <div class="passport-card printable-document">
+      <div class="passport-actions no-print">
+        <button class="primary-btn" id="btnPrintPassport">🖨️ Print / Save PDF</button>
+        <button class="ghost-btn" id="btnClosePassport">✕ Close</button>
+      </div>
+      <div class="passport-body" id="passportContent">
+        <!-- Dynamic passport rendered here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Advanced User Login Modal -->
   <div class="auth-overlay hidden" id="authOverlay">
     <div class="auth-card">
       <div class="auth-header">
         <div class="auth-brand">
           <div class="brand-mark lg">S</div>
           <div>
-            <h2>StockLens</h2>
-            <p>Operations Intelligence & Terminal Access</p>
+            <h2>StockLens Enterprise</h2>
+            <p>Operations Intelligence & Handheld Terminal Access</p>
           </div>
         </div>
       </div>
 
-      <!-- Auth Mode Tabs -->
       <div class="auth-tabs">
         <button class="auth-tab active" data-auth-tab="password">🔑 Password</button>
         <button class="auth-tab" data-auth-tab="pin">🔢 Fast PIN</button>
@@ -98,7 +198,6 @@
 
       <div class="auth-error-msg hidden" id="authError"></div>
 
-      <!-- Password Login Pane -->
       <div class="auth-pane" id="panePassword">
         <form id="passwordLoginForm" class="auth-form">
           <label>
@@ -123,7 +222,6 @@
         </form>
       </div>
 
-      <!-- PIN Pad Login Pane -->
       <div class="auth-pane hidden" id="panePin">
         <div class="pin-display-wrap">
           <p class="pin-instruction">Enter your 4-digit terminal access PIN</p>
@@ -151,7 +249,6 @@
         <p class="pin-quick-note">Default Admin PIN: <b>1964</b> · Operator: <b>2026</b> · Auditor: <b>8888</b></p>
       </div>
 
-      <!-- 1-Click Fast Switch Demo Pane -->
       <div class="auth-pane hidden" id="paneDemo">
         <p class="demo-instruction">Select a pre-configured role to immediately launch:</p>
         <div class="demo-accounts-list">
@@ -183,7 +280,7 @@
       </div>
 
       <div class="auth-footer">
-        <span>Protected by StockLens RBAC Security</span>
+        <span>StockLens Enterprise Edition · v1.1.0</span>
       </div>
     </div>
   </div>
@@ -203,7 +300,12 @@
   </div>
 
   <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.json" hidden />
+  
+  <!-- SheetJS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- HTML5 Barcode & QR Code Scanning Library -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  
   <script src="supabase-config.js"></script>
   <script src="app.js"></script>
   <script>

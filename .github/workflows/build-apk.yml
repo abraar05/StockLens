@@ -6,7 +6,6 @@ on:
       - main
     paths-ignore:
       - 'README.md'
-      - '.gitignore'
   workflow_dispatch:
 
 permissions:
@@ -14,7 +13,7 @@ permissions:
 
 jobs:
   build-apk:
-    name: Build Android APK
+    name: Build Android Enterprise APK
     runs-on: ubuntu-latest
 
     steps:
@@ -46,6 +45,13 @@ jobs:
       - name: Add Capacitor Android Platform
         run: npx cap add android
 
+      - name: Inject Android Permissions
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          # Add camera, flashlight, vibration permissions if not present
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.CAMERA" \/>\n    <uses-permission android:name="android.permission.FLASHLIGHT" \/>\n    <uses-permission android:name="android.permission.VIBRATE" \/>\n    <uses-feature android:name="android.hardware.camera" android:required="false" \/>\n    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" \/>' "$MANIFEST"
+          echo "Permissions injected into AndroidManifest.xml"
+
       - name: Sync Capacitor Project
         run: npx cap sync android
 
@@ -55,41 +61,47 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
-      - name: Organize APK Artifact
+      - name: Organize APK Artifacts
         run: |
           mkdir -p build-output
-          cp android/app/build/outputs/apk/debug/app-debug.apk build-output/StockLens-v1.0.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk build-output/StockLens-Enterprise-v1.1.0.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk build-output/StockLens.apk
           echo "APK generated successfully:"
-          ls -lh build-output/StockLens-v1.0.apk
+          ls -lh build-output/
 
       - name: Upload APK Workflow Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StockLens-APK
-          path: build-output/StockLens-v1.0.apk
+          name: StockLens-Enterprise-APK
+          path: build-output/
           if-no-files-found: error
 
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.0
-          name: StockLens Operations Intelligence v1.0.0 (APK Release)
+          tag_name: v1.1.0
+          name: StockLens Enterprise Operations Edition v1.1.0 (APK Release)
           body: |
-            ## StockLens Mobile & Terminal APK (v1.0.0)
+            ## 📱 StockLens Enterprise Operations Edition (v1.1.0)
 
-            Installable Android application for StockLens Operations Intelligence.
+            Production-grade handheld operations tool with integrated hardware barcode scanner, device custody passport, ergonomic bottom navigation, and advanced role-based security.
 
-            ### ✨ What's Included:
-            - **Advanced User Login & RBAC**: Admin (`bahalul1964@gmail.com`), Floor Operator, and Audit Inspector accounts.
-            - **4-Digit Terminal PIN Pad**: Fast keypad login for warehouse and sales kiosks.
-            - **Master Dataset Embedded**: Complete 24,207 operational records, 15,862 IMEIs tracked.
-            - **IMEI Intelligence & Timeline**: Event classification, warranty signals, and refund eligibility.
-            - **Offline-First Resilience**: Runs 100% offline with zero server dependency.
-            - **Multilingual**: English, Bengali (বাংলা), and Chinese (中文).
+            ### 🚀 Enterprise Capabilities:
+            - **📷 Live Camera Barcode & IMEI Scanner**: Reticle targeting, auto-focus, flashlight torch toggle, and front/rear camera flip.
+            - **📦 Batch Scanning & Warehouse Ingestion**: Rapid carton and pallet scanning with instant duplicate detection alerts.
+            - **📜 Device Custody Passport / Certificate**: Printable and PDF-exportable chain-of-custody verification report with warranty/refund decision badges.
+            - **📱 Handheld Bottom Navigation Bar**: Single-thumb mobile navigation bar with floating elevated scanner trigger.
+            - **⚡ Filter Chips**: One-tap pills for *Duplicates Only, Unique Units, Returns/RMA, Repairs, and August 2026*.
+            - **🔊 Audio Synthesizer & Haptic Cues**: Dual-tone confirmation beeps and tactile vibration feedback.
+            - **🔐 Advanced Role-Based Security**: Admin (`bahalul1964@gmail.com`), Floor Operator, and Audit Inspector with 4-digit PIN pad and 15-minute auto-lock.
+            - **100% Offline Embedded Database**: Full 24,207 records and IMEI intelligence running locally with zero server dependency.
 
-            ### 📲 Direct Download:
-            Download **[StockLens-v1.0.apk](https://github.com/abraar05/StockLens/releases/download/v1.0.0/StockLens-v1.0.apk)** and install on any Android phone or tablet.
-          files: build-output/StockLens-v1.0.apk
+            ### 📲 Direct Downloads:
+            - **[StockLens-Enterprise-v1.1.0.apk](https://github.com/abraar05/StockLens/releases/download/v1.1.0/StockLens-Enterprise-v1.1.0.apk)**
+            - **[StockLens.apk (Universal Mirror)](https://github.com/abraar05/StockLens/releases/download/v1.1.0/StockLens.apk)**
+          files: |
+            build-output/StockLens-Enterprise-v1.1.0.apk
+            build-output/StockLens.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

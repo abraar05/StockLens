@@ -31,3 +31,6 @@ oauth_setup_notes.txt
 SKILL.md
 
 theme.config.js
+
+*.apk
+StockLens.apk

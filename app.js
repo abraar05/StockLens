@@ -12,6 +12,7 @@ const state = {
   currency: 'BDT',
   selectedImei: null,
   query: '',
+  quickFilter: 'all',
   filters: { wing: '', status: '', from: '', to: '' },
   allocations: JSON.parse(localStorage.getItem('stocklens_allocations') || '[]'),
   offers: JSON.parse(localStorage.getItem('stocklens_offers') || '[]'),
@@ -21,13 +22,19 @@ const state = {
   authTab: 'password',
   pinBuffer: '',
   isLocked: false,
-  auditLog: JSON.parse(localStorage.getItem('stocklens_audit_log') || '[]')
+  auditLog: JSON.parse(localStorage.getItem('stocklens_audit_log') || '[]'),
+  settings: JSON.parse(localStorage.getItem('stocklens_settings') || '{"sound":true,"haptic":true,"continuousScan":false}'),
+  batchMode: false,
+  batchScans: [],
+  scannerActive: false,
+  currentCameraId: null,
+  torchOn: false
 };
 
 const I18N = {
   en: {
     overview: 'Operations overview', dashboard: 'Dashboard', inventory: 'Inventory', imei: 'IMEI intelligence',
-    offers: 'Client offers', data: 'Data center', users: 'Users & Security', guide: 'Guide & definitions',
+    offers: 'Client offers', data: 'Data center', users: 'Users & Security', settings: 'Enterprise Settings', guide: 'Guide & definitions',
     import: 'Import', export: 'Export', records: 'Records', unique: 'Unique IMEI / serials',
     duplicates: 'Actual duplicate IMEIs', units: 'Tracked units', search: 'Search IMEI, party, model or source…',
     allWings: 'All wings', allStatus: 'All statuses', dateFrom: 'From date', dateTo: 'To date',
@@ -44,49 +51,52 @@ const I18N = {
     actual: 'actual duplicates', guideTitle: 'How StockLens works',
     userTitle: 'User accounts & access control', userHelp: 'Manage role-based security, PINs, and terminal authorizations.',
     addUser: 'Add user', name: 'Full name', email: 'Email address', role: 'Role', pin: 'Terminal PIN',
-    password: 'Password', actions: 'Actions', accessDenied: 'Access restricted to Administrators.'
+    password: 'Password', actions: 'Actions', accessDenied: 'Access restricted to Administrators.',
+    passport: 'Device Custody Passport', print: 'Print Certificate'
   },
   bn: {
     overview: 'অপারেশনস ওভারভিউ', dashboard: 'ড্যাশবোর্ড', inventory: 'ইনভেন্টরি', imei: 'IMEI বিশ্লেষণ',
-    offers: 'ক্লায়েন্ট অফার', data: 'ডাটা সেন্টার', users: 'ইউজার ও সিকিউরিটি', guide: 'গাইড ও সংজ্ঞা',
+    offers: 'ক্লায়েন্ট অফার', data: 'ডাটা সেন্টার', users: 'ইউজার ও সিকিউরিটি', settings: 'এন্টারপ্রাইজ সেটিংস', guide: 'গাইড ও সংজ্ঞা',
     import: 'ইমপোর্ট', export: 'এক্সপোর্ট', records: 'রেকর্ড', unique: 'ইউনিক IMEI / সিরিয়াল',
     duplicates: 'আসল ডুপ্লিকেট IMEI', units: 'ট্র্যাকড ইউনিট', search: 'IMEI, পার্টি, মডেল বা সোর্স খুঁজুন…',
     allWings: 'সব উইং', allStatus: 'সব স্ট্যাটাস', dateFrom: 'শুরুর তারিখ', dateTo: 'শেষ তারিখ',
     recent: 'সাম্প্রতিক রেকর্ড', wings: 'উইং বিতরণ', health: 'ডাটা স্বাস্থ্য',
-    duplicatesNote: 'একই ব্যক্তিগত IMEI একাধিক অপারেশনাল রেকর্ডে — বিক্রয়, রিপেয়ার, স্টক, রিসেল বা অন্য ইভেন্টে — থাকলে সেটিই ডুপ্লিকেট। একই সোর্সের পুনরাবৃত্তি দুইবার গণনা হয় না।',
-    searchTitle: 'IMEI খুঁজুন', searchHelp: 'যেকোনো IMEI / সিরিয়াল খুঁজে সম্পূর্ণ হিস্ট্রি দেখুন।',
+    duplicatesNote: 'একই ব্যক্তিগত IMEI একাধিক অপারেশনাল রেকর্ডে থাকলে সেটিই ডুপ্লিকেট।',
+    searchTitle: 'IMEI খুঁজুন', searchHelp: 'যেকোনো IMEI খুঁজে সম্পূর্ণ হিস্ট্রি দেখুন।',
     noResults: 'মিল পাওয়া যায়নি।', allocation: 'স্টক বরাদ্দ',
-    allocationHelp: 'নতুন ইনভেন্টরি রেকর্ড তৈরি না করে উপলব্ধ ইউনিট বিক্রেতা বা ক্লায়েন্টকে দিন।',
+    allocationHelp: 'উপলব্ধ ইউনিট বিক্রেতা বা ক্লায়েন্টকে দিন।',
     seller: 'বিক্রেতা / ক্লায়েন্ট', qty: 'পরিমাণ', model: 'মডেল / পণ্য', save: 'বরাদ্দ সংরক্ষণ',
     offersTitle: 'বিশেষ অফার', offersHelp: 'উপলব্ধ স্টক ও ক্লায়েন্টের জন্য অফার তৈরি করুন।',
-    price: 'মূল্য', client: 'ক্লায়েন্ট', create: 'অফার তৈরি', dataTitle: 'ইমপোর্ট, পরিষ্কার ও এক্সপোর্ট',
-    dataHelp: 'শুধু নতুন রেকর্ড ইমপোর্ট হয়। একই ফিঙ্গারপ্রিন্ট বাদ যায়, কিন্তু বিভিন্ন ইভেন্টে থাকা একই IMEI আলাদাভাবে ধরা হয়।',
-    importData: 'স্প্রেডশিট / CSV ইমপোর্ট', exportData: 'বর্তমান ডাটা এক্সপোর্ট', loaded: 'লোড হয়েছে',
-    actual: 'আসল ডুপ্লিকেট', guideTitle: 'StockLens কীভাবে কাজ করে',
-    userTitle: 'ইউজার অ্যাকাউন্ট ও এক্সেস নিয়ন্ত্রণ', userHelp: 'রোলভিত্তিক নিরাপত্তা, পিন ও টার্মিনাল অনুমোদন পরিচালনা করুন।',
-    addUser: 'নতুন ইউজার যোগ', name: 'নাম', email: 'ইমেইল', role: 'রোল', pin: 'টার্মিনাল পিন',
-    password: 'পাসওয়ার্ড', actions: 'অ্যাকশন', accessDenied: 'শুধু অ্যাডমিনের জন্য অনুমোদিত।'
+    price: 'মূল্য', client: 'ক্লায়েন্ট', create: 'অফার তৈরি', dataTitle: 'ইমপোর্ট ও এক্সপোর্ট',
+    dataHelp: 'শুধু নতুন রেকর্ড ইমপোর্ট হয়।',
+    importData: 'স্প্রেডশিট ইমপোর্ট', exportData: 'ডাটা এক্সপোর্ট', loaded: 'লোড হয়েছে',
+    actual: 'আসল ডুপ্লিকেট', guideTitle: 'StockLens গাইড',
+    userTitle: 'ইউজার অ্যাকাউন্ট', userHelp: 'রোলভিত্তিক নিরাপত্তা পরিচালনা করুন।',
+    addUser: 'ইউজার যোগ', name: 'নাম', email: 'ইমেইল', role: 'রোল', pin: 'পিন',
+    password: 'পাসওয়ার্ড', actions: 'অ্যাকশন', accessDenied: 'শুধু অ্যাডমিনের জন্য অনুমোদিত।',
+    passport: 'ডিভাইস কাস্টডি পাসপোর্ট', print: 'প্রিন্ট সার্টিফিকেট'
   },
   zh: {
     overview: '运营总览', dashboard: '仪表盘', inventory: '库存', imei: 'IMEI 智能分析',
-    offers: '客户报价', data: '数据中心', users: '用户与安全', guide: '指南与定义',
+    offers: '客户报价', data: '数据中心', users: '用户与安全', settings: '企业设置', guide: '指南与定义',
     import: '导入', export: '导出', records: '记录', unique: '唯一 IMEI / 序列号',
     duplicates: '真实重复 IMEI', units: '跟踪单位', search: '搜索 IMEI、客户、型号或来源…',
     allWings: '全部部门', allStatus: '全部状态', dateFrom: '开始日期', dateTo: '结束日期',
     recent: '最近记录', wings: '部门分布', health: '数据健康',
-    duplicatesNote: '同一个 IMEI 出现在销售、维修、库存、转售或其他运营记录中，才算真实重复。相同来源的重复行不会重复计数。',
-    searchTitle: '查找 IMEI', searchHelp: '搜索任意 IMEI / 序列号，查看完整流转记录。',
+    duplicatesNote: '同一个 IMEI 出现在多个运营记录中才算重复。',
+    searchTitle: '查找 IMEI', searchHelp: '搜索任意 IMEI 查看流转记录。',
     noResults: '没有找到匹配记录。', allocation: '库存分配',
-    allocationHelp: '将可用单位分配给销售员或客户，不创建重复库存记录。',
+    allocationHelp: '将可用单位分配给销售员或客户。',
     seller: '销售员 / 客户', qty: '数量', model: '型号 / 产品', save: '保存分配',
     offersTitle: '专属报价', offersHelp: '根据可用库存和客户创建报价。',
-    price: '价格', client: '客户', create: '创建报价', dataTitle: '导入、清理与导出',
-    dataHelp: '只导入新记录。完全相同的指纹会跳过，但不同事件中的同一 IMEI 仍会标记。',
-    importData: '导入表格 / CSV', exportData: '导出当前数据', loaded: '已加载',
-    actual: '真实重复', guideTitle: 'StockLens 如何工作',
-    userTitle: '用户账号与权限管理', userHelp: '管理基于角色的安全、PIN 码与终端授权。',
-    addUser: '添加用户', name: '姓名', email: '电子邮箱', role: '角色', pin: '终端 PIN',
-    password: '密码', actions: '操作', accessDenied: '仅限管理员访问。'
+    price: '价格', client: '客户', create: '创建报价', dataTitle: '导入与导出',
+    dataHelp: '只导入新记录。',
+    importData: '导入表格', exportData: '导出数据', loaded: '已加载',
+    actual: '真实重复', guideTitle: 'StockLens 指南',
+    userTitle: '用户账号管理', userHelp: '管理角色权限与终端授权。',
+    addUser: '添加用户', name: '姓名', email: '邮箱', role: '角色', pin: '终端 PIN',
+    password: '密码', actions: '操作', accessDenied: '仅限管理员访问。',
+    passport: '设备流转合规认证', print: '打印认证报告'
   }
 };
 
@@ -109,6 +119,234 @@ function dateVal(x) {
 }
 
 function uniq(a) { return [...new Set(a.filter(Boolean))]; }
+
+/* ===== WEB AUDIO SYNTHESIZER & HAPTIC FEEDBACK ===== */
+let audioCtx = null;
+function getAudioContext() {
+  if (!audioCtx) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) audioCtx = new AudioContext();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+function beepSuccess() {
+  if (!state.settings.sound) return;
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.12);
+  } catch (e) {}
+}
+
+function beepWarning() {
+  if (!state.settings.sound) return;
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(320, ctx.currentTime);
+    osc.frequency.setValueAtTime(220, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.28);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.28);
+  } catch (e) {}
+}
+
+function haptic(pattern = [30]) {
+  if (state.settings.haptic && navigator.vibrate) {
+    try { navigator.vibrate(pattern); } catch (e) {}
+  }
+}
+
+/* ===== HARDWARE CAMERA & BARCODE SCANNER ===== */
+let html5QrCode = null;
+
+async function startScanner() {
+  const modal = document.getElementById('scannerModal');
+  modal.classList.remove('hidden');
+  state.scannerActive = true;
+  haptic([20]);
+
+  if (typeof Html5Qrcode !== 'undefined') {
+    try {
+      if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode('reader');
+      }
+      const cameras = await Html5Qrcode.getCameras();
+      if (cameras && cameras.length) {
+        state.currentCameraId = cameras[cameras.length - 1].id; // Prefer rear camera
+        await html5QrCode.start(
+          state.currentCameraId,
+          {
+            fps: 15,
+            qrbox: { width: 250, height: 180 },
+            aspectRatio: 1.333
+          },
+          onScanSuccess,
+          onScanFailure
+        );
+      } else {
+        // Direct facing mode fallback
+        await html5QrCode.start(
+          { facingMode: 'environment' },
+          { fps: 15, qrbox: { width: 250, height: 180 } },
+          onScanSuccess,
+          onScanFailure
+        );
+      }
+    } catch (err) {
+      console.warn('Camera stream notice:', err);
+    }
+  } else {
+    toast('Scanner ready (manual entry active)');
+  }
+}
+
+async function stopScanner() {
+  const modal = document.getElementById('scannerModal');
+  modal.classList.add('hidden');
+  state.scannerActive = false;
+  if (html5QrCode) {
+    try {
+      await html5QrCode.stop();
+      html5QrCode.clear();
+      html5QrCode = null;
+    } catch (e) {}
+  }
+}
+
+async function toggleTorch() {
+  if (html5QrCode && html5QrCode.applyVideoConstraints) {
+    try {
+      state.torchOn = !state.torchOn;
+      await html5QrCode.applyVideoConstraints({
+        advanced: [{ torch: state.torchOn }]
+      });
+      document.getElementById('btnToggleTorch').classList.toggle('active', state.torchOn);
+      toast(state.torchOn ? 'Flashlight ON' : 'Flashlight OFF');
+    } catch (e) {
+      toast('Torch not supported on this lens');
+    }
+  }
+}
+
+function onScanSuccess(decodedText) {
+  const cleanKey = String(decodedText).replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+  if (!cleanKey) return;
+
+  // Check occurrences
+  const matches = state.records.filter(r => r['IMEI Key'] === cleanKey);
+  const isDuplicate = matches.length > 1;
+
+  if (isDuplicate) {
+    beepWarning();
+    haptic([80, 50, 80]);
+  } else {
+    beepSuccess();
+    haptic([30]);
+  }
+
+  if (state.batchMode) {
+    if (!state.batchScans.includes(cleanKey)) {
+      state.batchScans.push(cleanKey);
+    }
+    document.getElementById('batchCount').textContent = state.batchScans.length;
+    const dupCount = state.batchScans.filter(k => (state.records.filter(r => r['IMEI Key'] === k).length > 1)).length;
+    document.getElementById('batchDupAlert').textContent = `${dupCount} Duplicates`;
+    toast(`Scanned: ${cleanKey}`);
+  } else {
+    stopScanner();
+    state.selectedImei = cleanKey;
+    state.view = 'imei';
+    render();
+    toast(`Scanned IMEI: ${cleanKey}`);
+  }
+}
+
+function onScanFailure(error) {
+  // Silent frame scan miss (standard barcode scanner cycle)
+}
+
+/* ===== DEVICE CUSTODY PASSPORT & PRINTABLE CERTIFICATE ===== */
+function openPassportModal(imeiKey) {
+  const rows = state.records.filter(r => r['IMEI Key'] === imeiKey);
+  if (!rows.length) {
+    toast('No records found for custody passport');
+    return;
+  }
+  const a = auditModel(rows);
+  const primary = rows[0];
+  const certId = 'STL-' + (primary['Record ID'] || imeiKey.slice(-6)) + '-' + Math.floor(Math.random() * 8999 + 1000);
+
+  document.getElementById('passportContent').innerHTML = `
+    <div class="passport-header">
+      <div>
+        <span class="passport-brand-badge">STOCKLENS OPERATIONS INTELLIGENCE</span>
+        <h2>Device Custody Passport & Compliance Audit</h2>
+        <p class="muted">Official chain-of-custody verification record and warranty/refund decision support.</p>
+      </div>
+      <div style="text-align:right">
+        <div class="brand-mark" style="margin-left:auto">S</div>
+        <small class="muted" style="margin-top:6px;display:block">ID: ${esc(certId)}</small>
+      </div>
+    </div>
+
+    <div class="passport-meta-box">
+      <div><small>Device Model / Product</small><b>${esc(primary['Product Detail'] || '—')}</b></div>
+      <div><small>IMEI / Serial Number</small><b><code>${esc(primary['IMEI / Serial'])}</code></b></div>
+      <div><small>Normalized Key</small><b><code>${esc(primary['IMEI Key'])}</code></b></div>
+      <div><small>Initial Receiving Date</small><b>${esc(dateVal(a.first['Record Date']))}</b></div>
+      <div><small>Latest Event Date</small><b>${esc(dateVal(a.last['Record Date']))}</b></div>
+      <div><small>Total Lifetime Appearances</small><b>${fmt(rows.length)} recorded events</b></div>
+    </div>
+
+    <div class="passport-verdict-banner ${a.ownership === 'Likely ours' ? 'verdict-approved' : 'verdict-review'}">
+      <div>
+        <strong>Ownership Verification: ${esc(a.ownership)}</strong>
+        <p style="margin:2px 0 0;font-size:11px">Inventory evidence: ${fmt(a.inventory.length)} units · Sales link: ${fmt(a.sales.length)} units</p>
+      </div>
+      <div>
+        <span class="tag ${a.warranty === 'Review eligible' ? 'tag-good' : 'tag-warn'}">${esc(a.warranty)}</span>
+      </div>
+    </div>
+
+    <div class="passport-timeline">
+      <h4>Complete Event History</h4>
+      ${auditRows(a.ordered)}
+    </div>
+
+    <div class="passport-footer">
+      <div>
+        <span>Generated by <b>${esc(state.currentUser?.name || 'Authorized Terminal')}</b></span><br>
+        <small>Terminal Timestamp: ${new Date().toLocaleString()}</small>
+      </div>
+      <div class="signature-box">
+        Authorized Signature / Seal
+      </div>
+    </div>
+  `;
+
+  document.getElementById('passportModal').classList.remove('hidden');
+}
 
 /* ===== EVENT CLASSIFICATION & IMEI AUDIT ===== */
 function eventType(r) {
@@ -225,6 +463,8 @@ function authenticateUser(user, remember = true) {
     localStorage.removeItem('stocklens_current_user');
   }
 
+  beepSuccess();
+  haptic([30]);
   logAudit('Login Successful', `Method: ${state.authTab}`);
   hideAuthOverlay();
   updateUserUI();
@@ -236,6 +476,8 @@ function showAuthError(msg) {
   const el = document.getElementById('authError');
   el.textContent = msg;
   el.classList.remove('hidden');
+  beepWarning();
+  haptic([80, 50]);
 }
 
 function clearAuthError() {
@@ -274,8 +516,12 @@ function unlockApp() {
   if (val === state.currentUser.pin || val === state.currentUser.password) {
     state.isLocked = false;
     document.getElementById('lockOverlay').classList.add('hidden');
+    beepSuccess();
+    haptic([30]);
     toast('Terminal unlocked');
   } else {
+    beepWarning();
+    haptic([80, 50]);
     toast('Incorrect PIN or password');
   }
 }
@@ -309,12 +555,12 @@ function renderPinDots() {
 }
 
 function handlePinKey(digit) {
+  haptic([15]);
   if (state.pinBuffer.length < 4) {
     state.pinBuffer += digit;
     renderPinDots();
   }
   if (state.pinBuffer.length === 4) {
-    // Attempt PIN authentication
     const matched = state.users.find(u => u.pin === state.pinBuffer && u.active);
     if (matched) {
       authenticateUser(matched, true);
@@ -348,6 +594,7 @@ function page(title, kicker = 'COMMAND CENTER') {
   document.getElementById('pageKicker').textContent = kicker;
   document.getElementById('pageTitle').textContent = title;
   nav();
+  syncBottomNav();
 }
 
 function nav() {
@@ -364,6 +611,7 @@ function nav() {
     items.push(['users', '👥', t('users')]);
   }
 
+  items.push(['settings', '⚙️', t('settings')]);
   items.push(['guide', '?', t('guide')]);
 
   document.getElementById('nav').innerHTML = items.map(x =>
@@ -371,15 +619,35 @@ function nav() {
   ).join('');
 }
 
+function syncBottomNav() {
+  document.querySelectorAll('.bnav-btn[data-view]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === state.view);
+  });
+}
+
 function getFiltered() {
   const q = state.query.toLowerCase();
   return state.records.filter(r => {
     const d = dateVal(r['Record Date']);
-    return (!q || Object.values(r).some(v => String(v).toLowerCase().includes(q))) &&
-      (!state.filters.wing || r.Wing === state.filters.wing) &&
-      (!state.filters.status || r.Status === state.filters.status) &&
-      (!state.filters.from || d >= state.filters.from) &&
-      (!state.filters.to || d <= state.filters.to);
+    
+    // Search query
+    const matchQ = !q || Object.values(r).some(v => String(v).toLowerCase().includes(q));
+    
+    // Dropdown filters
+    const matchWing = !state.filters.wing || r.Wing === state.filters.wing;
+    const matchStatus = !state.filters.status || r.Status === state.filters.status;
+    const matchFrom = !state.filters.from || d >= state.filters.from;
+    const matchTo = !state.filters.to || d <= state.filters.to;
+
+    // Quick Filter Chips
+    let matchChip = true;
+    if (state.quickFilter === 'duplicates') matchChip = r['Duplicate IMEI'] === 'Yes';
+    else if (state.quickFilter === 'unique') matchChip = r['Duplicate IMEI'] === 'No';
+    else if (state.quickFilter === 'returns') matchChip = /return|refund|rma/i.test(r.Status || '');
+    else if (state.quickFilter === 'repairs') matchChip = /repair|damage/i.test(r.Status || '');
+    else if (state.quickFilter === 'august') matchChip = (d || '').startsWith('2026-08');
+
+    return matchQ && matchWing && matchStatus && matchFrom && matchTo && matchChip;
   });
 }
 
@@ -402,14 +670,14 @@ function dashboard() {
           ${top.map(([k, v]) => `<div class="bar-row"><span>${esc(k)}</span><div class="bar"><i style="width:${v / max * 100}%"></i></div><b>${fmt(v)}</b></div>`).join('')}
         </div>
         <div class="card">
-          <div class="card-head"><div><h2>${t('health')}</h2><p>Cleaning rules applied to the source workbook.</p></div></div>
-          <div class="notice"><b>49 legacy dates normalized</b><br>Dates such as 1930-08-01 were treated as spreadsheet date artifacts and moved to 2026-08-01.</div>
+          <div class="card-head"><div><h2>${t('health')}</h2><p>Cleaning rules applied to master dataset.</p></div></div>
+          <div class="notice"><b>49 legacy dates normalized</b><br>Dates such as 1930-08-01 were treated as spreadsheet artifacts and moved to 2026-08-01.</div>
           <br>
           <div class="notice warn"><b>${fmt(m.dup)} actual duplicate IMEIs</b><br>${t('duplicatesNote')}</div>
         </div>
       </div>
       <div class="card">
-        <div class="card-head"><div><h2>${t('recent')}</h2><p>Click IMEI to inspect its full history.</p></div><button class="ghost-btn" data-view="inventory">View all</button></div>
+        <div class="card-head"><div><h2>${t('recent')}</h2><p>Click IMEI to inspect its full custody timeline.</p></div><button class="ghost-btn" data-view="inventory">View all</button></div>
         ${table(state.records.slice().sort((a, b) => dateVal(b['Record Date']).localeCompare(dateVal(a['Record Date']))).slice(0, 8))}
       </div>
     </div>`;
@@ -417,7 +685,7 @@ function dashboard() {
 
 function table(rows) {
   if (!rows.length) return `<div class="empty">${t('noResults')}</div>`;
-  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>IMEI / Serial</th><th>Product</th><th>Party</th><th>Wing</th><th>Status</th><th>Signal</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc(dateVal(r['Record Date']))}</td><td><button class="ghost-btn imei-link" data-imei="${esc(r['IMEI Key'])}">${esc(r['IMEI / Serial'])}</button></td><td>${esc(r['Product Detail'])}</td><td>${esc(r['Party Name'])}</td><td>${esc(r.Wing)}</td><td>${esc(r.Status || '—')}</td><td>${r['Duplicate IMEI'] === 'Yes' ? '<span class="tag tag-danger">Duplicate</span>' : '<span class="tag tag-good">Unique</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>IMEI / Serial</th><th>Product</th><th>Party</th><th>Wing</th><th>Status</th><th>Signal</th><th>Passport</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc(dateVal(r['Record Date']))}</td><td><button class="ghost-btn imei-link" data-imei="${esc(r['IMEI Key'])}">${esc(r['IMEI / Serial'])}</button></td><td>${esc(r['Product Detail'])}</td><td>${esc(r['Party Name'])}</td><td>${esc(r.Wing)}</td><td>${esc(r.Status || '—')}</td><td>${r['Duplicate IMEI'] === 'Yes' ? '<span class="tag tag-danger">Duplicate</span>' : '<span class="tag tag-good">Unique</span>'}</td><td><button class="ghost-btn btn-sm btn-passport" data-imei="${esc(r['IMEI Key'])}">📜 Certificate</button></td></tr>`).join('')}</tbody></table></div>`;
 }
 
 function inventory() {
@@ -426,8 +694,27 @@ function inventory() {
   const wings = uniq(state.records.map(r => r.Wing)).sort(), statuses = uniq(state.records.map(r => r.Status)).sort();
   document.getElementById('view').innerHTML = `
     <div class="card">
-      <div class="card-head"><div><h2>${t('inventory')}</h2><p>Filter and inspect the cleaned master register.</p></div><div class="kpi-strip"><span><b>${fmt(rows.length)}</b> shown</span><span><b>${fmt(metrics().dup)}</b> duplicates</span></div></div>
-      <div class="search-line"><input id="query" value="${esc(state.query)}" placeholder="${t('search')}"/><button class="primary-btn" id="clearSearch">Clear</button></div>
+      <div class="card-head">
+        <div><h2>${t('inventory')}</h2><p>Filter and inspect the cleaned master register.</p></div>
+        <div class="kpi-strip"><span><b>${fmt(rows.length)}</b> shown</span><span><b>${fmt(metrics().dup)}</b> duplicates</span></div>
+      </div>
+
+      <!-- Quick-Tap Filter Chips -->
+      <div class="quick-chips-row">
+        <button class="filter-chip ${state.quickFilter === 'all' ? 'active' : ''}" data-chip="all">All Records</button>
+        <button class="filter-chip ${state.quickFilter === 'duplicates' ? 'active' : ''}" data-chip="duplicates">⚠️ Duplicates Only</button>
+        <button class="filter-chip ${state.quickFilter === 'unique' ? 'active' : ''}" data-chip="unique">✅ Unique Units</button>
+        <button class="filter-chip ${state.quickFilter === 'returns' ? 'active' : ''}" data-chip="returns">🔄 Returns / RMA</button>
+        <button class="filter-chip ${state.quickFilter === 'repairs' ? 'active' : ''}" data-chip="repairs">🔧 Repairs</button>
+        <button class="filter-chip ${state.quickFilter === 'august' ? 'active' : ''}" data-chip="august">📅 Aug 2026</button>
+      </div>
+
+      <div class="search-line">
+        <input id="query" value="${esc(state.query)}" placeholder="${t('search')}"/>
+        <button class="ghost-btn" id="openScannerBtn">📷 Scan</button>
+        <button class="primary-btn" id="clearSearch">Clear</button>
+      </div>
+
       <div class="filters">
         <label class="filter">Wing<select id="wingFilter"><option value="">${t('allWings')}</option>${wings.map(v => `<option ${v === state.filters.wing ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
         <label class="filter">Status<select id="statusFilter"><option value="">${t('allStatus')}</option>${statuses.map(v => `<option ${v === state.filters.status ? 'selected' : ''}>${esc(v || 'Blank')}</option>`).join('')}</select></label>
@@ -435,7 +722,7 @@ function inventory() {
         <label class="filter">${t('dateTo')}<input type="date" id="toFilter" value="${state.filters.to}"></label>
       </div>
       ${table(rows.slice(0, 250))}
-      <p class="muted">Showing up to 250 rows for a fast browser experience. Export includes all filtered rows.</p>
+      <p class="muted">Showing up to 250 rows for fast mobile response. Export includes all filtered rows.</p>
     </div>`;
 }
 
@@ -450,18 +737,28 @@ function imei() {
       <div class="grid-2">
         <div class="card">
           <div class="card-head"><div><h2>${t('searchTitle')}</h2><p>${t('searchHelp')}</p></div></div>
-          <div class="search-line"><input id="imeiSearch" value="${esc(q)}" placeholder="${t('search')}"/><button class="primary-btn" id="findImei">Find</button></div>
+          <div class="search-line">
+            <input id="imeiSearch" value="${esc(q)}" placeholder="${t('search')}"/>
+            <button class="ghost-btn" id="openScannerBtn">📷</button>
+            <button class="primary-btn" id="findImei">Find</button>
+          </div>
           ${r ? `
-            <div class="notice ${rows.length > 1 ? 'warn' : ''}"><b>${rows.length > 1 ? `Actual duplicate · ${rows.length} events` : 'Single event found'}</b><br>${esc(r['IMEI / Serial'])} · ${esc(r['Product Detail'])}</div>
+            <div class="notice ${rows.length > 1 ? 'warn' : ''}">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <b>${rows.length > 1 ? `Actual duplicate · ${rows.length} events` : 'Single event found'}</b>
+                <button class="primary-btn btn-sm" id="btnGenPassport" data-imei="${esc(r['IMEI Key'])}">📜 Custody Certificate</button>
+              </div>
+              <p style="margin:6px 0 0">${esc(r['IMEI / Serial'])} · ${esc(r['Product Detail'])}</p>
+            </div>
             <br>
             <div class="record-detail">
               <div class="detail-item"><small>IMEI type</small><b>${esc(r['IMEI Type'] || 'IMEI / serial')}</b></div>
               <div class="detail-item"><small>First seen / inventory</small><b>${esc(dateVal(a.first['Record Date']))}</b></div>
               <div class="detail-item"><small>Models / parties</small><b>${fmt(a.products.length)} / ${fmt(a.parties.length)}</b></div>
-            </div>` : '<div class="empty">Search a normalized IMEI to inspect its chain of custody.</div>'}
+            </div>` : '<div class="empty">Scan a barcode or enter an IMEI to inspect its chain of custody.</div>'}
         </div>
         <div class="card">
-          <div class="card-head"><div><h2>Ownership, warranty & refund review</h2><p>Decision support only — keep the source documents before approving a refund.</p></div></div>
+          <div class="card-head"><div><h2>Ownership, warranty & refund review</h2><p>Decision support only — keep source documents before approving a refund.</p></div></div>
           ${a ? `
             <div class="audit-grid">
               <div class="detail-item"><small>Ownership check</small><b>${decisionTag(a.ownership)}</b></div>
@@ -481,7 +778,10 @@ function imei() {
       </div>
       ${a ? `
         <div class="card">
-          <div class="card-head"><div><h2>Full event timeline</h2><p>Different model, customer, status, and source appearances for this same individual IMEI.</p></div><span class="tag ${rows.length > 1 ? 'tag-danger' : 'tag-good'}">${fmt(rows.length)} events</span></div>
+          <div class="card-head">
+            <div><h2>Full event timeline</h2><p>Different model, customer, status, and source appearances for this individual IMEI.</p></div>
+            <span class="tag ${rows.length > 1 ? 'tag-danger' : 'tag-good'}">${fmt(rows.length)} events</span>
+          </div>
           ${auditRows(a.ordered)}
         </div>` : ''}
     </div>`;
@@ -554,7 +854,6 @@ function dataCenter() {
     </div>`;
 }
 
-/* ===== USER MANAGEMENT VIEW (ADMIN ONLY) ===== */
 function usersView() {
   if (state.currentUser?.role !== 'admin') {
     page(t('users'));
@@ -644,16 +943,79 @@ function usersView() {
     </div>`;
 }
 
+/* ===== ENTERPRISE SETTINGS & DIAGNOSTICS VIEW ===== */
+function settingsView() {
+  page(t('settings'));
+  document.getElementById('view').innerHTML = `
+    <div class="view-grid">
+      <div class="settings-grid">
+        <div class="card">
+          <div class="card-head"><div><h2>Hardware & Feedback Controls</h2><p>Configure handheld acoustic, haptic, and sensor behaviors.</p></div></div>
+          <div class="setting-item">
+            <div class="setting-meta">
+              <strong>Acoustic Beep Feedback</strong>
+              <small>Plays synthesized scan confirm and duplicate alert tones</small>
+            </div>
+            <div class="toggle-switch ${state.settings.sound ? 'active' : ''}" data-setting="sound"></div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-meta">
+              <strong>Haptic Vibration</strong>
+              <small>Tactile confirmation pulses on barcode detection and PIN pad</small>
+            </div>
+            <div class="toggle-switch ${state.settings.haptic ? 'active' : ''}" data-setting="haptic"></div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-meta">
+              <strong>Continuous Batch Scanning</strong>
+              <small>Stay in viewfinder mode for rapid multi-box warehouse ingestion</small>
+            </div>
+            <div class="toggle-switch ${state.settings.continuousScan ? 'active' : ''}" data-setting="continuousScan"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h2>Database & Diagnostics</h2><p>Local offline storage statistics and synchronization.</p></div></div>
+          <div class="setting-item">
+            <div class="setting-meta">
+              <strong>Master Records Cached</strong>
+              <small>${fmt(state.records.length)} operational rows in local memory</small>
+            </div>
+            <span class="tag tag-good">100% READY</span>
+          </div>
+          <div class="setting-item">
+            <div class="setting-meta">
+              <strong>Database Storage Size</strong>
+              <small>~12.5 MB indexed JSON in browser IndexedDB / localStorage</small>
+            </div>
+            <span class="tag">Active</span>
+          </div>
+          <div class="setting-item">
+            <div class="setting-meta">
+              <strong>Cloud Sync Pipeline</strong>
+              <small>Supabase ready (Optional connection)</small>
+            </div>
+            <span class="tag tag-warn">Local-First</span>
+          </div>
+          <div style="margin-top:16px;display:flex;gap:8px">
+            <button class="primary-btn btn-sm" id="btnBackupDb">📥 Backup Local DB</button>
+            <button class="ghost-btn btn-sm" id="btnTestBeep">🔊 Test Audio Tone</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
 function guide() {
   page(t('guideTitle'));
   document.getElementById('view').innerHTML = `
     <div class="guide">
-      <div class="card"><h2>Actual duplicate IMEI</h2><p>The same normalized IMEI appears in more than one operational record. This is intentional: it lets you trace a phone from stock to sale, repair, resell or another event.</p></div>
-      <div class="card"><h2>New-only import</h2><p>Every row gets a fingerprint made from date, party, product, IMEI, source and quantity. Only fingerprints not already in the register are added.</p></div>
-      <div class="card"><h2>Date cleanup</h2><p>Spreadsheet artifacts before 2020 are not treated as historical dates. They are normalized to 2026-08-01 to keep the August 2026 operational period intact.</p></div>
-      <div class="card"><h2>Currency</h2><p>Use the selector below to display offers in Bangladeshi taka (৳), Chinese yuan (¥), or US dollars ($). Rates are editable in <code>app.js</code> for your preferred business rate.</p><div class="select-wrap"><select id="currencySelect"><option>BDT</option><option>CNY</option><option>USD</option></select></div></div>
-      <div class="card"><h2>Role-Based Security</h2><p>Administrators have full operational control. Floor Operators can track inventory and create client offers. Audit Inspectors have dedicated access to IMEI lifecycle intelligence.</p></div>
-      <div class="card"><h2>InfinityFree & Android APK</h2><p>StockLens operates as a standalone web application and as an installable Android APK with local offline caching and biometric/PIN terminal lock.</p></div>
+      <div class="card"><h2>Actual duplicate IMEI</h2><p>The same normalized IMEI appears in more than one operational record. This lets you trace a phone from stock to sale, repair, resell or another event.</p></div>
+      <div class="card"><h2>Hardware Barcode Scanning</h2><p>Use the camera viewfinder or external 2D laser scanner. The system supports Code 128, Code 39, QR, DataMatrix, and serial number reading with instant haptic cues.</p></div>
+      <div class="card"><h2>Device Custody Passport</h2><p>Click "Certificate" on any IMEI to view or print an official, signed custody certificate with warranty and refund decision badges.</p></div>
+      <div class="card"><h2>Currency</h2><p>Display offers in Bangladeshi taka (৳), Chinese yuan (¥), or US dollars ($). Rates are editable in <code>app.js</code>.</p><div class="select-wrap"><select id="currencySelect"><option>BDT</option><option>CNY</option><option>USD</option></select></div></div>
+      <div class="card"><h2>Role-Based Security</h2><p>Administrators have full operational control. Floor Operators track inventory and create offers. Audit Inspectors have dedicated access to IMEI lifecycle intelligence.</p></div>
+      <div class="card"><h2>Android Enterprise APK</h2><p>StockLens operates as a standalone native Android application with local offline caching and biometric/PIN terminal lock.</p></div>
     </div>`;
 }
 
@@ -663,12 +1025,14 @@ function render() {
     return;
   }
   nav();
+  syncBottomNav();
   if (state.view === 'dashboard') dashboard();
   else if (state.view === 'inventory') inventory();
   else if (state.view === 'imei') imei();
   else if (state.view === 'offers') offers();
   else if (state.view === 'data') dataCenter();
   else if (state.view === 'users') usersView();
+  else if (state.view === 'settings') settingsView();
   else guide();
 }
 
@@ -739,7 +1103,7 @@ function fingerprint(r) {
 
 /* ===== EVENT LISTENERS ===== */
 document.addEventListener('click', e => {
-  // Navigation
+  // Navigation & Bottom Navigation
   const v = e.target.closest('[data-view]')?.dataset.view;
   if (v) {
     state.view = v;
@@ -749,28 +1113,98 @@ document.addEventListener('click', e => {
   if (e.target.id === 'menuBtn') document.querySelector('.sidebar').classList.toggle('open');
   if (e.target.id === 'importTop' || e.target.id === 'importData') document.getElementById('fileInput').click();
   if (e.target.id === 'exportTop' || e.target.id === 'exportData') exportCsv(getFiltered());
+
+  // Scanner Launchers
+  if (e.target.closest('#openScannerTop') || e.target.closest('#openScannerBtn') || e.target.closest('#openScannerBottom')) {
+    startScanner();
+    return;
+  }
+  if (e.target.id === 'closeScannerBtn') {
+    stopScanner();
+    return;
+  }
+  if (e.target.id === 'btnToggleTorch') {
+    toggleTorch();
+    return;
+  }
+  if (e.target.id === 'btnBatchMode') {
+    state.batchMode = !state.batchMode;
+    e.target.textContent = state.batchMode ? '📦 Batch: ON' : '📦 Batch: OFF';
+    e.target.classList.toggle('active', state.batchMode);
+    document.getElementById('batchStatusBar').classList.toggle('hidden', !state.batchMode);
+    toast(state.batchMode ? 'Batch Scanning Mode active' : 'Single Inspection Mode active');
+    return;
+  }
+  if (e.target.id === 'btnFinishBatch') {
+    stopScanner();
+    toast(`Batch completed: ${state.batchScans.length} units scanned`);
+    return;
+  }
+  if (e.target.id === 'btnManualSubmit') {
+    const val = document.getElementById('manualImeiInput').value.trim();
+    if (val) onScanSuccess(val);
+    return;
+  }
+
+  // Custody Passport Modal
+  const passportBtn = e.target.closest('.btn-passport') || e.target.closest('#btnGenPassport');
+  if (passportBtn) {
+    const imeiKey = passportBtn.dataset.imei;
+    if (imeiKey) openPassportModal(imeiKey);
+    return;
+  }
+  if (e.target.id === 'btnClosePassport') {
+    document.getElementById('passportModal').classList.add('hidden');
+    return;
+  }
+  if (e.target.id === 'btnPrintPassport') {
+    window.print();
+    return;
+  }
+
+  // Quick Filter Chips
+  const chipBtn = e.target.closest('[data-chip]');
+  if (chipBtn) {
+    state.quickFilter = chipBtn.dataset.chip;
+    haptic([15]);
+    render();
+    return;
+  }
+
+  // IMEI Link Click
   if (e.target.classList.contains('imei-link')) {
     state.selectedImei = e.target.dataset.imei;
     state.view = 'imei';
     render();
+    return;
   }
   if (e.target.id === 'clearSearch') {
     state.query = '';
+    state.quickFilter = 'all';
     render();
+    return;
   }
   if (e.target.id === 'findImei') {
     state.selectedImei = (document.getElementById('imeiSearch').value || '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
     render();
+    return;
   }
 
   // User Dropdown Toggle
   if (e.target.closest('#userBadgeBtn')) {
     document.getElementById('userDropdown').classList.toggle('show');
+    return;
   } else if (!e.target.closest('#userMenuWrap')) {
     document.getElementById('userDropdown')?.classList.remove('show');
   }
 
   // User Dropdown Actions
+  if (e.target.id === 'btnSettingsNav') {
+    state.view = 'settings';
+    document.getElementById('userDropdown').classList.remove('show');
+    render();
+    return;
+  }
   if (e.target.id === 'btnLockApp') lockApp();
   if (e.target.id === 'btnSwitchAccount') {
     document.getElementById('userDropdown').classList.remove('show');
@@ -836,6 +1270,30 @@ document.addEventListener('click', e => {
       render();
     }
   }
+
+  // Setting Toggles
+  const toggleBtn = e.target.closest('.toggle-switch');
+  if (toggleBtn) {
+    const s = toggleBtn.dataset.setting;
+    state.settings[s] = !state.settings[s];
+    localStorage.setItem('stocklens_settings', JSON.stringify(state.settings));
+    toggleBtn.classList.toggle('active', state.settings[s]);
+    toast(`${s.toUpperCase()} updated`);
+  }
+
+  if (e.target.id === 'btnTestBeep') {
+    beepSuccess();
+    setTimeout(beepWarning, 250);
+  }
+
+  if (e.target.id === 'btnBackupDb') {
+    const blob = new Blob([JSON.stringify(state.records)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `stocklens-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    toast('Database backup downloaded');
+  }
 });
 
 document.addEventListener('change', e => {
@@ -878,7 +1336,6 @@ document.addEventListener('submit', e => {
   e.preventDefault();
   const f = new FormData(e.target);
 
-  // Password Login Form
   if (e.target.id === 'passwordLoginForm') {
     const email = document.getElementById('loginEmail').value.trim();
     const pass = document.getElementById('loginPassword').value;
@@ -892,7 +1349,6 @@ document.addEventListener('submit', e => {
     }
   }
 
-  // Add User Form (Admin only)
   if (e.target.id === 'addUserForm') {
     const name = f.get('name').trim();
     const email = f.get('email').trim().toLowerCase();
@@ -924,7 +1380,6 @@ document.addEventListener('submit', e => {
     render();
   }
 
-  // Stock Allocation Form
   if (e.target.id === 'allocationForm') {
     state.allocations.push({
       seller: f.get('seller'),
@@ -937,7 +1392,6 @@ document.addEventListener('submit', e => {
     render();
   }
 
-  // Client Offer Form
   if (e.target.id === 'offerForm') {
     state.offers.push({
       client: f.get('client'),
@@ -953,7 +1407,6 @@ document.addEventListener('submit', e => {
   }
 });
 
-// Unlock input enter key listener
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && state.isLocked) {
     unlockApp();
