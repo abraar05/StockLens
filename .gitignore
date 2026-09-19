@@ -3,20 +3,25 @@
 .env
 supabase.local.js
 
-# Large source files - not needed for web deployment
+# Build directories
+node_modules/
+www/
+android/
+build-output/
+
+# Large source files - not needed for git
 *.zip
 *.xlsx
 *.xls
 StockLens_Master_Records.csv
 
-# Python scripts - utility files only
+# Utility python scripts
 *.py
 
-# Mobile app source files
+# Mobile app legacy template source files
 *.tsx
 *.ts
 *.config.ts
-*.config.js
 
 # Other development files
 eas.json
@@ -24,3 +29,5 @@ oauth_setup_notes.txt
 .kilo/
 .jarvisignore
 SKILL.md
+
+theme.config.js

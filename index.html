@@ -2,9 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="theme-color" content="#0f766e" />
+  <meta name="description" content="StockLens Operations Intelligence — IMEI tracking, inventory management, warranty/refund audit" />
   <title>StockLens · Operations Intelligence</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="icons/favicon.png" />
+  <link rel="apple-touch-icon" href="icons/icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -12,24 +16,202 @@
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
-  <div class="app-shell">
+
+  <!-- Main App Shell (Hidden when not authenticated) -->
+  <div class="app-shell" id="appShell">
     <aside class="sidebar">
-      <div class="brand"><div class="brand-mark">S</div><div><strong>StockLens</strong><span>Operations intelligence</span></div></div>
+      <div class="brand">
+        <div class="brand-mark">S</div>
+        <div><strong>StockLens</strong><span>Operations intelligence</span></div>
+      </div>
       <nav id="nav" class="nav"></nav>
-      <div class="side-note"><span class="pulse"></span><span id="dataState">Local data ready</span></div>
+      <div class="side-note">
+        <span class="pulse"></span>
+        <span id="dataState">Local data ready</span>
+      </div>
     </aside>
     <main class="main">
       <header class="topbar">
-        <button id="menuBtn" class="icon-btn mobile-only">☰</button>
-        <div><div class="eyebrow" id="pageKicker">COMMAND CENTER</div><h1 id="pageTitle">Operations overview</h1></div>
-        <div class="top-actions"><button class="ghost-btn" id="importTop">↥ <span data-i18n="import">Import</span></button><button class="primary-btn" id="exportTop">↧ <span data-i18n="export">Export</span></button><div class="select-wrap"><select id="langSelect" aria-label="Language"><option value="en">English</option><option value="bn">বাংলা</option><option value="zh">中文</option></select></div></div>
+        <button id="menuBtn" class="icon-btn mobile-only" aria-label="Toggle menu">☰</button>
+        <div>
+          <div class="eyebrow" id="pageKicker">COMMAND CENTER</div>
+          <h1 id="pageTitle">Operations overview</h1>
+        </div>
+        <div class="top-actions">
+          <button class="ghost-btn" id="importTop">↥ <span data-i18n="import">Import</span></button>
+          <button class="primary-btn" id="exportTop">↧ <span data-i18n="export">Export</span></button>
+          <div class="select-wrap">
+            <select id="langSelect" aria-label="Language">
+              <option value="en">English</option>
+              <option value="bn">বাংলা</option>
+              <option value="zh">中文</option>
+            </select>
+          </div>
+          
+          <!-- User Profile & Session Widget -->
+          <div class="user-menu-wrap" id="userMenuWrap">
+            <button class="user-badge-btn" id="userBadgeBtn" aria-label="User menu">
+              <div class="user-avatar" id="topAvatar">A</div>
+              <div class="user-meta-text">
+                <strong id="topUserName">Admin</strong>
+                <span class="role-pill" id="topUserRole">ADMIN</span>
+              </div>
+              <span class="dropdown-caret">▾</span>
+            </button>
+            <div class="user-dropdown" id="userDropdown">
+              <div class="user-dropdown-header">
+                <strong id="dropUserName">Admin User</strong>
+                <span id="dropUserEmail">admin@stocklens.internal</span>
+              </div>
+              <hr />
+              <button class="user-drop-item" id="btnLockApp">🔒 Lock Terminal</button>
+              <button class="user-drop-item" id="btnSwitchAccount">🔄 Switch Account</button>
+              <hr />
+              <button class="user-drop-item text-danger" id="btnLogout">🚪 Sign Out</button>
+            </div>
+          </div>
+        </div>
       </header>
       <section id="view"></section>
     </main>
   </div>
+
+  <!-- Advanced Login Screen Modal -->
+  <div class="auth-overlay hidden" id="authOverlay">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="auth-brand">
+          <div class="brand-mark lg">S</div>
+          <div>
+            <h2>StockLens</h2>
+            <p>Operations Intelligence & Terminal Access</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Auth Mode Tabs -->
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-auth-tab="password">🔑 Password</button>
+        <button class="auth-tab" data-auth-tab="pin">🔢 Fast PIN</button>
+        <button class="auth-tab" data-auth-tab="demo">⚡ 1-Click Demo</button>
+      </div>
+
+      <div class="auth-error-msg hidden" id="authError"></div>
+
+      <!-- Password Login Pane -->
+      <div class="auth-pane" id="panePassword">
+        <form id="passwordLoginForm" class="auth-form">
+          <label>
+            <span>Email Address</span>
+            <input type="email" id="loginEmail" required placeholder="user@company.com" autocomplete="username" />
+          </label>
+          <label>
+            <span>Password</span>
+            <div class="input-with-action">
+              <input type="password" id="loginPassword" required placeholder="Enter password" autocomplete="current-password" />
+              <button type="button" class="field-toggle-btn" id="togglePasswordVisibility">👁</button>
+            </div>
+          </label>
+          <div class="form-row-remember">
+            <label class="checkbox-label">
+              <input type="checkbox" id="rememberMe" checked />
+              <span>Remember this terminal</span>
+            </label>
+            <span class="auth-hint">Default Admin: admin</span>
+          </div>
+          <button type="submit" class="primary-btn auth-submit-btn">Sign In to Command Center</button>
+        </form>
+      </div>
+
+      <!-- PIN Pad Login Pane -->
+      <div class="auth-pane hidden" id="panePin">
+        <div class="pin-display-wrap">
+          <p class="pin-instruction">Enter your 4-digit terminal access PIN</p>
+          <div class="pin-dots" id="pinDots">
+            <span class="pin-dot"></span>
+            <span class="pin-dot"></span>
+            <span class="pin-dot"></span>
+            <span class="pin-dot"></span>
+          </div>
+        </div>
+        <div class="pin-keypad">
+          <button class="pin-key" data-digit="1">1</button>
+          <button class="pin-key" data-digit="2">2</button>
+          <button class="pin-key" data-digit="3">3</button>
+          <button class="pin-key" data-digit="4">4</button>
+          <button class="pin-key" data-digit="5">5</button>
+          <button class="pin-key" data-digit="6">6</button>
+          <button class="pin-key" data-digit="7">7</button>
+          <button class="pin-key" data-digit="8">8</button>
+          <button class="pin-key" data-digit="9">9</button>
+          <button class="pin-key op-key" id="pinClear">CLR</button>
+          <button class="pin-key" data-digit="0">0</button>
+          <button class="pin-key op-key" id="pinBackspace">⌫</button>
+        </div>
+        <p class="pin-quick-note">Default Admin PIN: <b>1964</b> · Operator: <b>2026</b> · Auditor: <b>8888</b></p>
+      </div>
+
+      <!-- 1-Click Fast Switch Demo Pane -->
+      <div class="auth-pane hidden" id="paneDemo">
+        <p class="demo-instruction">Select a pre-configured role to immediately launch:</p>
+        <div class="demo-accounts-list">
+          <div class="demo-acc-card" data-demo-email="bahalul1964@gmail.com">
+            <div class="demo-acc-icon admin-bg">👑</div>
+            <div class="demo-acc-info">
+              <strong>Bahalul (Administrator)</strong>
+              <small>Full control · Users · Data Center · Import/Export</small>
+            </div>
+            <span class="tag tag-good">Admin</span>
+          </div>
+          <div class="demo-acc-card" data-demo-email="operator@stocklens.internal">
+            <div class="demo-acc-icon op-bg">📦</div>
+            <div class="demo-acc-info">
+              <strong>Floor Operator</strong>
+              <small>Inventory tracking · Offers · Stock allocations</small>
+            </div>
+            <span class="tag tag-warn">Operator</span>
+          </div>
+          <div class="demo-acc-card" data-demo-email="auditor@stocklens.internal">
+            <div class="demo-acc-icon audit-bg">🔍</div>
+            <div class="demo-acc-info">
+              <strong>Audit Inspector</strong>
+              <small>IMEI Intelligence · Warranty & refund signals</small>
+            </div>
+            <span class="tag">Auditor</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="auth-footer">
+        <span>Protected by StockLens RBAC Security</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Terminal Lock Screen Overlay -->
+  <div class="lock-overlay hidden" id="lockOverlay">
+    <div class="lock-card">
+      <div class="brand-mark lg">S</div>
+      <h2>Terminal Locked</h2>
+      <p>Session active for <strong id="lockedUserName">Admin</strong></p>
+      <div class="lock-form">
+        <input type="password" id="unlockInput" placeholder="Enter PIN or Password" />
+        <button class="primary-btn" id="btnUnlock">Unlock</button>
+      </div>
+      <button class="ghost-btn switch-acc-btn" id="btnUnlockSwitch">Switch User</button>
+    </div>
+  </div>
+
   <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.json" hidden />
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="supabase-config.js"></script>
   <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration error:', err));
+      });
+    }
+  </script>
 </body>
 </html>

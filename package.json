@@ -1,0 +1,19 @@
+{
+  "name": "stocklens",
+  "version": "1.0.0",
+  "description": "StockLens Operations Intelligence — IMEI tracking, inventory management, warranty/refund audit",
+  "main": "index.html",
+  "scripts": {
+    "prepare:www": "node scripts/prepare-www.js",
+    "cap:build": "npm run prepare:www && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
+    "@capacitor/android": "^6.2.0"
+  },
+  "author": "StockLens",
+  "license": "MIT"
+}
