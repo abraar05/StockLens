@@ -1,0 +1,26 @@
+.DS_Store
+*.log
+.env
+supabase.local.js
+
+# Large source files - not needed for web deployment
+*.zip
+*.xlsx
+*.xls
+StockLens_Master_Records.csv
+
+# Python scripts - utility files only
+*.py
+
+# Mobile app source files
+*.tsx
+*.ts
+*.config.ts
+*.config.js
+
+# Other development files
+eas.json
+oauth_setup_notes.txt
+.kilo/
+.jarvisignore
+SKILL.md
